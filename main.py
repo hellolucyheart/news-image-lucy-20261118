@@ -11,6 +11,7 @@ Standard library only. No network, no randomness, no clock.
 """
 
 import hashlib
+import struct
 import sys
 from pathlib import Path
 
@@ -59,10 +60,24 @@ def load_poster(path):
     return data
 
 
+def poster_dimensions(data):
+    """Return the poster's (width, height) from its PNG IHDR chunk.
+
+    The IHDR chunk always follows the 8-byte PNG signature: 4 bytes of
+    chunk length, the 4-byte chunk name "IHDR", then width and height as
+    big-endian 32-bit integers.
+    """
+    if len(data) < 24 or data[12:16] != b"IHDR":
+        raise ValueError("poster PNG has no IHDR chunk")
+    width, height = struct.unpack(">II", data[16:24])
+    return width, height
+
+
 def main():
     poster_path = Path(__file__).resolve().parent / IMAGE_FILE
     try:
         poster = load_poster(poster_path)
+        width, height = poster_dimensions(poster)
     except ValueError as problem:
         print("ERROR | %s" % problem)
         return 1
@@ -74,7 +89,10 @@ def main():
     print("TITLE | The World in One Day")
     for number, (region, headline) in enumerate(STORIES, start=1):
         print("STORY %d | %s | %s" % (number, region, headline))
-    print("IMAGE | %s | bytes=%d | sha256=%s" % (IMAGE_FILE, len(poster), digest))
+    print(
+        "IMAGE | %s | %dx%d | bytes=%d | sha256=%s"
+        % (IMAGE_FILE, width, height, len(poster), digest)
+    )
     print("STATUS | ok")
     return 0
 
